@@ -9,12 +9,11 @@ import tkinter.font as tkFont
 import uuid
 import sys
 
-
-
-
-
-
-
+# Predefined login credentials
+LOGIN_CREDENTIALS = {
+    "username": "admin",
+    "password": "inixindo123"
+}
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -24,6 +23,59 @@ def resource_path(relative_path):
 
 df_global = None
 output_dir = ""
+
+# Login Window
+def create_login_window():
+    login_window = tk.Toplevel()
+    login_window.title("Login - Slip Gaji Inixindo")
+    login_window.geometry("350x200")
+    login_window.resizable(False, False)
+    
+    # Center the window
+    window_width = 350
+    window_height = 200
+    screen_width = login_window.winfo_screenwidth()
+    screen_height = login_window.winfo_screenheight()
+    x = (screen_width - window_width) // 2
+    y = (screen_height - window_height) // 2
+    login_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    
+    # Make it modal
+    login_window.grab_set()
+    
+    # Login Frame
+    login_frame = tk.Frame(login_window, padx=20, pady=20)
+    login_frame.pack(expand=True, fill="both")
+    
+    tk.Label(login_frame, text="Username:", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", pady=(0, 5))
+    username_entry = tk.Entry(login_frame, font=("Segoe UI", 10))
+    username_entry.grid(row=0, column=1, sticky="ew", pady=(0, 5))
+    
+    tk.Label(login_frame, text="Password:", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=(0, 5))
+    password_entry = tk.Entry(login_frame, show="*", font=("Segoe UI", 10))
+    password_entry.grid(row=1, column=1, sticky="ew", pady=(0, 5))
+    
+    def attempt_login():
+        username = username_entry.get()
+        password = password_entry.get()
+        
+        if username == LOGIN_CREDENTIALS["username"] and password == LOGIN_CREDENTIALS["password"]:
+            login_window.destroy()
+            root.deiconify()  # Show the main window
+        else:
+            messagebox.showerror("Login Gagal", "Username atau password salah!")
+    
+    login_button = tk.Button(login_frame, text="Login", command=attempt_login, 
+                           bg="#4caf50", fg="white", font=("Segoe UI", 10, "bold"))
+    login_button.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+    
+    # Bind Enter key to login
+    login_window.bind('<Return>', lambda event: attempt_login())
+    
+    # Set focus to username field
+    username_entry.focus_set()
+    
+    return login_window
 
 def open_file():
     global df_global
@@ -263,12 +315,8 @@ def generate_slip_gaji(df):
         )
        
         safe_name = row['Nama'].replace(' ', '_')
-        #unique_id = uuid.uuid4().hex[:6]
-        #filename = os.path.join(output_dir, f"{safe_name}_{unique_id}_Slip_Gaji.pdf")
         filename = os.path.join(output_dir, f"{safe_name}_Slip_Gaji.pdf")
         pdf.output(filename)
-
-
 
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -383,10 +431,6 @@ def blast_email():
     import threading
     threading.Thread(target=send_emails, daemon=True).start()
 
-
-
-
-
 def open_folder():
     if os.path.exists(output_dir):
         if os.name == 'nt':
@@ -396,11 +440,17 @@ def open_folder():
     else:
         messagebox.showwarning("Peringatan", "Folder tidak ditemukan!")
 
-# GUI Setup
+# Main GUI Setup
 root = tk.Tk()
 root.title("Slip Gaji - Generate PDF")
 root.geometry("1000x650")
 root.configure(bg="#f0f2f5")
+
+# Hide main window initially
+root.withdraw()
+
+# Create login window
+create_login_window()
 
 style = ttk.Style(root)
 style.theme_use("default")
@@ -431,15 +481,8 @@ tk.Button(btn_frame, text="🖨️ Generate Slip Gaji", command=generate_pdf_cli
           font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=10)
 tk.Button(btn_frame, text="📂 Buka Folder Slip Gaji", command=open_folder, width=20, bg="#ff5722", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=3, padx=10)
-# Tambahkan tombol blasting email di GUI
 tk.Button(btn_frame, text="📧 Blasting Email", command=blast_email, width=20, bg="#9c27b0", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=4, padx=10)
-
-
-
-
-
-
 
 label_file = tk.Label(root, text="❌ Tidak ada file yang dipilih", font=("Segoe UI", 10), fg="gray", bg="#f0f2f5")
 label_file.pack(pady=5)
