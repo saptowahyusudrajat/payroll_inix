@@ -9,9 +9,6 @@ import tkinter.font as tkFont
 import uuid
 import sys
 
-
-
-
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     if hasattr(sys, '_MEIPASS'):
@@ -23,7 +20,6 @@ def resource_path(relative_path):
 # logo_path = "logo_inix.png"
 # With:
 logo_path = resource_path("logo_inix.png")
-
 
 df_global = None  # Untuk menyimpan data excel yang di-load
 
@@ -45,8 +41,6 @@ def open_file():
     else:
         label_file.config(text="❌ Tidak ada file yang dipilih")
 
-
-
 def tampilkan_excel(df):
     tree.delete(*tree.get_children())  # Clear existing rows
     tree["columns"] = list(df.columns)
@@ -65,18 +59,38 @@ def tampilkan_excel(df):
             if item_width > max_width:
                 max_width = item_width + 20
 
-        tree.column(col, anchor="center", width=max_width, minwidth=max_width, stretch=False)
+            tree.column(col, anchor="center", width=max_width, minwidth=max_width, stretch=True)
 
     for _, row in df.iterrows():
         tree.insert("", "end", values=list(row))
 
     tree.xview_moveto(0)
+
+def select_pdf_loc():
+    global output_dir  # Pastikan menggunakan variabel global output_dir
+    # Menampilkan dialog pemilihan folder
+    folder_path = filedialog.askdirectory(title="Pilih Lokasi Penyimpanan Slip Gaji")
+    
+    if folder_path:  # Jika folder dipilih
+        output_dir = folder_path  # Menyimpan lokasi folder yang dipilih
+        messagebox.showinfo("Lokasi Tersimpan", f"File PDF akan disimpan di:\n{output_dir}")
+    else:
+        messagebox.showwarning("Peringatan", "Tidak ada folder yang dipilih.")
+
+
 def generate_pdf_clicked():
+    global output_dir  # Pastikan menggunakan variabel global output_dir
+    
     if df_global is None:
         messagebox.showwarning("Peringatan", "Silakan pilih file Excel terlebih dahulu.")
         return
+    
+    if not output_dir:  # Jika output_dir belum dipilih
+        messagebox.showwarning("Peringatan", "Silakan pilih lokasi penyimpanan terlebih dahulu.")
+        return
+
     generate_slip_gaji(df_global)
-    messagebox.showinfo("Sukses", "Slip gaji berhasil dibuat di folder 'slip_gaji/'")
+    messagebox.showinfo("Sukses", f"Slip gaji berhasil dibuat di folder '{output_dir}'")
 
 
 def format_tanggal_indonesia():
@@ -88,7 +102,10 @@ def format_tanggal_indonesia():
     return f"{sekarang.day} {bulan_indonesia[sekarang.month - 1]} {sekarang.year}"
 
 def generate_slip_gaji(df):
-    output_dir = "slip_gaji"
+    # output_dir = "slip_gaji"
+    # os.makedirs(output_dir, exist_ok=True)
+
+    # Pastikan folder output_dir sudah ada
     os.makedirs(output_dir, exist_ok=True)
 
     for _, row in df.iterrows():
@@ -238,9 +255,8 @@ def generate_slip_gaji(df):
         filename = os.path.join(output_dir, f"{safe_name}_{unique_id}_Slip_Gaji.pdf")
         pdf.output(filename)
 
-
 def open_folder():
-    output_dir = "slip_gaji"
+    global output_dir
     if os.path.exists(output_dir):
         if os.name == 'nt':  # Windows
             os.startfile(output_dir)
@@ -249,14 +265,10 @@ def open_folder():
     else:
         messagebox.showwarning("Peringatan", "Folder 'slip_gaji' tidak ditemukan!")
 
-
-       
-
 root = tk.Tk()
 root.title("Slip Gaji - Generate PDF")
 root.geometry("1000x650")
 root.configure(bg="#f0f2f5")
-
 
 style = ttk.Style(root)
 style.theme_use("default")
@@ -279,32 +291,39 @@ tk.Label(header_frame, text="Upload file Excel dan generate slip gaji dalam form
 btn_frame = tk.Frame(root, bg="#f0f2f5")
 btn_frame.pack(pady=10)
 
-
-
 tk.Button(btn_frame, text="📁 Pilih File Excel", command=open_file, width=20, bg="#4caf50", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=0, padx=10)
-tk.Button(btn_frame, text="🖨️ Generate Slip Gaji", command=generate_pdf_clicked, width=20, bg="#2196f3", fg="white",
+tk.Button(btn_frame, text="📁 Pilih Lokasi Slip Gaji", command=select_pdf_loc, width=20, bg="#ff8c00", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=1, padx=10)
-tk.Button(btn_frame, text="📂 Buka Folder Slip", command=open_folder, width=20, bg="#ff9800", fg="white",
+tk.Button(btn_frame, text="🖨️ Generate Slip Gaji", command=generate_pdf_clicked, width=20, bg="#2196f3", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=10)
+tk.Button(btn_frame, text="📂 Buka Folder Slip Gaji", command=open_folder, width=20, bg="#ff5722", fg="white",
+          font=("Segoe UI", 10, "bold")).grid(row=0, column=3, padx=10)
+tk.Button(btn_frame, text="📧 Blasting Email", command=open_folder, width=20, bg="#ff5722", fg="white",
+          font=("Segoe UI", 10, "bold")).grid(row=0, column=4, padx=10)
 
-label_file = tk.Label(root, text="📂 Belum ada file yang dipilih", font=("Segoe UI", 10), bg="#f0f2f5", anchor="w")
-label_file.pack(pady=5, anchor="w", padx=20)
+label_file = tk.Label(root, text="❌ Tidak ada file yang dipilih", font=("Segoe UI", 10), fg="gray", bg="#f0f2f5")
+label_file.pack(pady=5)
 
+# Frame untuk Scroll
+scroll_frame = tk.Frame(root)
+scroll_frame.pack(fill="both", expand=True)
 
-frame_table = tk.Frame(root)
-frame_table.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+tree_frame = tk.Frame(scroll_frame)
+tree_frame.pack(fill="both", expand=True)
 
-scroll_x = tk.Scrollbar(frame_table, orient=tk.HORIZONTAL)
-scroll_y = tk.Scrollbar(frame_table, orient=tk.VERTICAL)
+# Scrollbar vertical
+scrollbar_y = tk.Scrollbar(tree_frame, orient="vertical")
+scrollbar_y.pack(side="right", fill="y")
 
-tree = ttk.Treeview(frame_table, yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
-tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+# Scrollbar horizontal
+scrollbar_x = tk.Scrollbar(tree_frame, orient="horizontal")
+scrollbar_x.pack(side="bottom", fill="x")
 
-scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
-scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
+tree = ttk.Treeview(tree_frame, show="headings", height=8, yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+tree.pack(fill="both", expand=True)
 
-scroll_y.config(command=tree.yview)
-scroll_x.config(command=tree.xview)
+scrollbar_y.config(command=tree.yview)
+scrollbar_x.config(command=tree.xview)
 
 root.mainloop()
