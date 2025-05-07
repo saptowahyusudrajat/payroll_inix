@@ -6,6 +6,24 @@ import os
 import subprocess
 from datetime import datetime
 import tkinter.font as tkFont
+import uuid
+import sys
+
+
+
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller creates a temp folder stored in _MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+# In your PDF generation function, replace:
+# logo_path = "logo_inix.png"
+# With:
+logo_path = resource_path("logo_inix.png")
+
 
 df_global = None  # Untuk menyimpan data excel yang di-load
 
@@ -30,21 +48,29 @@ def open_file():
 
 
 def tampilkan_excel(df):
-    for widget in frame_table.winfo_children():
-        widget.destroy()
-
-    tree = ttk.Treeview(frame_table)
-    tree.pack(fill=tk.BOTH, expand=True)
-
+    tree.delete(*tree.get_children())  # Clear existing rows
     tree["columns"] = list(df.columns)
     tree["show"] = "headings"
+
+    font = tkFont.Font(font=("Segoe UI", 10))
+    header_font = tkFont.Font(font=("Segoe UI", 11, "bold"))
+
     for col in df.columns:
         tree.heading(col, text=col)
-        tree.column(col, anchor="center")
+
+        max_width = header_font.measure(col) + 20  # Header text width
+
+        for item in df[col].astype(str):
+            item_width = font.measure(item)
+            if item_width > max_width:
+                max_width = item_width + 20
+
+        tree.column(col, anchor="center", width=max_width, minwidth=max_width, stretch=False)
 
     for _, row in df.iterrows():
-        tree.insert("", tk.END, values=list(row))
+        tree.insert("", "end", values=list(row))
 
+    tree.xview_moveto(0)
 def generate_pdf_clicked():
     if df_global is None:
         messagebox.showwarning("Peringatan", "Silakan pilih file Excel terlebih dahulu.")
@@ -65,8 +91,6 @@ def generate_slip_gaji(df):
     output_dir = "slip_gaji"
     os.makedirs(output_dir, exist_ok=True)
 
-
-
     for _, row in df.iterrows():
         pdf = FPDF()
         pdf.add_page()
@@ -78,29 +102,45 @@ def generate_slip_gaji(df):
         FONT_TEXT = 10
         FONT_FOOTER = 9
 
+        # Set border parameters
+        border_margin = 6  # Space between content and border
+        page_width = 210  # A4 width in mm
+        page_height = 297  # A4 height in mm
+        border_width = 0.5  # Border line width
+
+        # Draw outer border
+        pdf.set_draw_color(0, 0, 0)  # Black color
+        pdf.set_line_width(border_width)
+        pdf.rect(border_margin, border_margin, 
+                page_width - 2*border_margin, 
+                page_height - 2*border_margin)
+
+        # Adjust content position to account for border margin
+        content_x = 10 + border_margin
+        content_y = 10 + border_margin
+        pdf.set_xy(content_x, content_y)
+
         # ======= HEADER WITH LOGO & COMPANY INFO =======
-        logo_path = "logo_inix.png"  # Nama file logo di folder yang sama dengan script
-        pdf.image(logo_path, x=10, y=10, w=30)  # Menyesuaikan ukuran dan posisi logo
+        logo_path = "logo_inix.png"
+        pdf.image(logo_path, x=content_x-5, y=content_y, w=30)
         
-        # Geser posisi teks ke kanan agar tidak tumpang tindih dengan logo
-        pdf.set_xy(42, 14)
-        pdf.set_font("Arial", "B", 14)  # Menyesuaikan ukuran font untuk nama perusahaan
+        # Company info position adjusted
+        pdf.set_xy(content_x + 28, content_y + 4)
+        pdf.set_font("Arial", "B", 14)
         pdf.cell(0, 8, "PT. Inixindo Widya Utama", ln=True)
 
-        pdf.ln(4)
-        pdf.set_font("Arial", "", 10)  # Ukuran font untuk alamat dan info lainnya
+        pdf.ln(2)
+        pdf.set_font("Arial", "", 10)
         pdf.cell(0, 5, "Jl. Tenggilis Barat I/19 (D17), Surabaya 60292,", ln=True)
         pdf.cell(0, 5, "Jawa Timur, Indonesia.", ln=True)
         pdf.cell(0, 5, "Email: info@inixindosurabaya.id", ln=True)
         pdf.cell(0, 5, "Telepon: +62318477733 (Pada Jam Kerja)", ln=True)
         pdf.cell(0, 5, "WA: +628819606907 (Fast Response)", ln=True)
 
-        pdf.ln(4)  # Memberikan jarak sebelum garis pembatas bawah kop
-
-        # Garis pembatas bawah kop
+        pdf.ln(4)
         pdf.set_draw_color(0, 0, 0)
         pdf.set_line_width(0.5)
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.line(content_x, pdf.get_y(), page_width - content_x, pdf.get_y())
         pdf.ln(5)
 
         # ======= SLIP GAJI CONTENT =======
@@ -119,18 +159,15 @@ def generate_slip_gaji(df):
         pdf.ln(3)
 
         pdf.set_draw_color(0, 0, 0)
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.line(content_x, pdf.get_y(), page_width - content_x, pdf.get_y())
         pdf.ln(6)
-
-
 
         # ======= PENDAPATAN =======
         pdf.set_font("Arial", "B", FONT_LABEL)
-        pdf.set_fill_color(230, 230, 230)  # Abu-abu muda
+        pdf.set_fill_color(235, 235, 235)
         pdf.cell(90, 8, "Pendapatan", border=1, align="C", fill=True)
         pdf.cell(0, 8, "Nominal", border=1, align="C", fill=True)
         pdf.ln()
-
         
         pdf.set_font("Arial", "", FONT_TEXT)
         for label in ["Gaji Pokok", "Tunjangan Kehadiran", "Lembur", "Komisi", "Bonus"]:
@@ -145,7 +182,7 @@ def generate_slip_gaji(df):
 
         # ======= POTONGAN =======
         pdf.set_font("Arial", "B", FONT_LABEL)
-        pdf.set_fill_color(230, 230, 230)
+        pdf.set_fill_color(235, 235, 235)
         pdf.cell(90, 8, "Potongan", border=1, align="C", fill=True)
         pdf.cell(0, 8, "Nominal", border=1, align="C", fill=True)
         pdf.ln()
@@ -159,23 +196,22 @@ def generate_slip_gaji(df):
         pdf.set_font("Arial", "B", FONT_LABEL)
         pdf.cell(90, 7, "TOTAL POTONGAN (B)", border=1, align="C")
         pdf.cell(0, 7, f"Rp {row.get('Total Potongan (B)', 0):,}", border=1, align="R")
-        pdf.ln(8)
+        pdf.ln(12)
 
         # ======= TAKE HOME PAY =======
         pdf.set_font("Arial", "B", FONT_LABEL)
-        pdf.set_fill_color(230, 230, 230)
+        pdf.set_fill_color(235, 235, 235)
         pdf.cell(90, 8, "Take Home Pay", border=1, align="C", fill=True)
         pdf.cell(0, 8, f"Rp {row.get('Take Home Pay', 0):,}", border=1, align="R", fill=True)
         pdf.ln(20)
 
-
-        # ======= FOOTER (2 columns: Mengetahui & Diterima oleh) =======
+        # ======= FOOTER =======
         tanggal_str = format_tanggal_indonesia()
         pdf.set_font("Arial", "", FONT_TEXT)
         pdf.cell(0, 6, tanggal_str, ln=True)
         pdf.ln(1)
 
-        col_width = 90  # half of 180 page width
+        col_width = 90
         pdf.set_font("Arial", "", FONT_TEXT)
         pdf.cell(col_width, 6, "Mengetahui,", align="L")
         pdf.cell(col_width, 6, "Diterima oleh,", align="R")
@@ -193,11 +229,13 @@ def generate_slip_gaji(df):
         # ======= DISCLAIMER =======
         pdf.set_font("Arial", "I", FONT_FOOTER)
         pdf.multi_cell(0, 5,
-            "Dokumen slip gaji ini diterbitkan secara resmi oleh PT Inixindo Widya Utama "
+            "Dokumen slip gaji ini diterbitkan secara resmi oleh PT. Inixindo Widya Utama "
             "melalui sistem informasi internal. Dokumen ini sah dan berlaku tanpa memerlukan tanda tangan basah maupun stempel."
         )
-
-        filename = os.path.join(output_dir, f"{row['Nama'].replace(' ', '_')}_Slip_Gaji.pdf")
+       
+        safe_name = row['Nama'].replace(' ', '_')
+        unique_id = uuid.uuid4().hex[:6]
+        filename = os.path.join(output_dir, f"{safe_name}_{unique_id}_Slip_Gaji.pdf")
         pdf.output(filename)
 
 
@@ -234,7 +272,7 @@ style.configure("Treeview.Heading", font=("Segoe UI", 11, "bold"), background="#
 header_frame = tk.Frame(root, bg="#f0f2f5")
 header_frame.pack(pady=10)
 
-tk.Label(header_frame, text="📄 Aplikasi Slip Gaji", font=("Segoe UI", 18, "bold"), bg="#f0f2f5").pack()
+tk.Label(header_frame, text="📄 App Slip Gaji Inixindo Surabaya", font=("Segoe UI", 18, "bold"), bg="#f0f2f5").pack()
 tk.Label(header_frame, text="Upload file Excel dan generate slip gaji dalam format PDF.",
          font=("Segoe UI", 10), bg="#f0f2f5", fg="#555").pack()
 
