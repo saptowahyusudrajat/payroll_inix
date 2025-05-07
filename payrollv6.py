@@ -9,19 +9,21 @@ import tkinter.font as tkFont
 import uuid
 import sys
 
+
+
+
+
+
+
+
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     if hasattr(sys, '_MEIPASS'):
-        # PyInstaller creates a temp folder stored in _MEIPASS
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
-# In your PDF generation function, replace:
-# logo_path = "logo_inix.png"
-# With:
-logo_path = resource_path("logo_inix.png")
-
-df_global = None  # Untuk menyimpan data excel yang di-load
+df_global = None
+output_dir = ""
 
 def open_file():
     global df_global
@@ -42,56 +44,70 @@ def open_file():
         label_file.config(text="❌ Tidak ada file yang dipilih")
 
 def tampilkan_excel(df):
-    tree.delete(*tree.get_children())  # Clear existing rows
+    tree.delete(*tree.get_children())
     tree["columns"] = list(df.columns)
     tree["show"] = "headings"
 
     font = tkFont.Font(font=("Segoe UI", 10))
     header_font = tkFont.Font(font=("Segoe UI", 11, "bold"))
 
+    # Daftar kolom yang tidak perlu format Rupiah
+    exclude_columns = ['Periode', 'Nama', 'NIK', 'Email', 'Total Hari Masuk']
+    
     for col in df.columns:
         tree.heading(col, text=col)
+        
+        max_width = header_font.measure(col) + 40
+        
+        # Format khusus untuk kolom numerik (selain yang dikecualikan)
+        if col not in exclude_columns and pd.api.types.is_numeric_dtype(df[col]):
+            for item in df[col]:
+                formatted = f"Rp {int(item):,}" if pd.notnull(item) else ""
+                item_width = font.measure(formatted)
+                if item_width > max_width:
+                    max_width = item_width + 40
+        else:
+            for item in df[col].astype(str):
+                item_width = font.measure(item)
+                if item_width > max_width:
+                    max_width = item_width + 40
 
-        max_width = header_font.measure(col) + 20  # Header text width
+        tree.column(col, anchor="center", width=max_width, minwidth=max_width, stretch=True)
 
-        for item in df[col].astype(str):
-            item_width = font.measure(item)
-            if item_width > max_width:
-                max_width = item_width + 20
-
-            tree.column(col, anchor="center", width=max_width, minwidth=max_width, stretch=True)
-
+    # Insert data dengan format Rupiah
     for _, row in df.iterrows():
-        tree.insert("", "end", values=list(row))
+        formatted_values = []
+        for col in df.columns:
+            if col not in exclude_columns and pd.api.types.is_numeric_dtype(df[col]):
+                value = row[col]
+                formatted_values.append(f"Rp {int(value):,}" if pd.notnull(value) else "")
+            else:
+                formatted_values.append(str(row[col]))
+        
+        tree.insert("", "end", values=formatted_values)
 
     tree.xview_moveto(0)
 
 def select_pdf_loc():
-    global output_dir  # Pastikan menggunakan variabel global output_dir
-    # Menampilkan dialog pemilihan folder
+    global output_dir
     folder_path = filedialog.askdirectory(title="Pilih Lokasi Penyimpanan Slip Gaji")
-    
-    if folder_path:  # Jika folder dipilih
-        output_dir = folder_path  # Menyimpan lokasi folder yang dipilih
+    if folder_path:
+        output_dir = folder_path
         messagebox.showinfo("Lokasi Tersimpan", f"File PDF akan disimpan di:\n{output_dir}")
-    else:
-        messagebox.showwarning("Peringatan", "Tidak ada folder yang dipilih.")
-
 
 def generate_pdf_clicked():
-    global output_dir  # Pastikan menggunakan variabel global output_dir
+    global output_dir
     
     if df_global is None:
         messagebox.showwarning("Peringatan", "Silakan pilih file Excel terlebih dahulu.")
         return
     
-    if not output_dir:  # Jika output_dir belum dipilih
+    if not output_dir:
         messagebox.showwarning("Peringatan", "Silakan pilih lokasi penyimpanan terlebih dahulu.")
         return
 
     generate_slip_gaji(df_global)
     messagebox.showinfo("Sukses", f"Slip gaji berhasil dibuat di folder '{output_dir}'")
-
 
 def format_tanggal_indonesia():
     bulan_indonesia = [
@@ -102,10 +118,6 @@ def format_tanggal_indonesia():
     return f"{sekarang.day} {bulan_indonesia[sekarang.month - 1]} {sekarang.year}"
 
 def generate_slip_gaji(df):
-    # output_dir = "slip_gaji"
-    # os.makedirs(output_dir, exist_ok=True)
-
-    # Pastikan folder output_dir sudah ada
     os.makedirs(output_dir, exist_ok=True)
 
     for _, row in df.iterrows():
@@ -113,35 +125,33 @@ def generate_slip_gaji(df):
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=10)
 
-        # ======= FONT SIZE SETUP =======
+        # Font setup
         FONT_TITLE = 14
         FONT_LABEL = 11
         FONT_TEXT = 10
         FONT_FOOTER = 9
 
-        # Set border parameters
-        border_margin = 6  # Space between content and border
-        page_width = 210  # A4 width in mm
-        page_height = 297  # A4 height in mm
-        border_width = 0.5  # Border line width
+        # Border setup
+        border_margin = 6
+        page_width = 210
+        border_width = 0.5
 
-        # Draw outer border
-        pdf.set_draw_color(0, 0, 0)  # Black color
+        # Draw border
+        pdf.set_draw_color(0, 0, 0)
         pdf.set_line_width(border_width)
         pdf.rect(border_margin, border_margin, 
                 page_width - 2*border_margin, 
-                page_height - 2*border_margin)
+                297 - 2*border_margin)
 
-        # Adjust content position to account for border margin
         content_x = 10 + border_margin
         content_y = 10 + border_margin
         pdf.set_xy(content_x, content_y)
 
-        # ======= HEADER WITH LOGO & COMPANY INFO =======
-        logo_path = "logo_inix.png"
+        # Header with logo
+        logo_path = resource_path("logo_inix.png")
         pdf.image(logo_path, x=content_x-5, y=content_y, w=30)
         
-        # Company info position adjusted
+        # Company info
         pdf.set_xy(content_x + 28, content_y + 4)
         pdf.set_font("Arial", "B", 14)
         pdf.cell(0, 8, "PT. Inixindo Widya Utama", ln=True)
@@ -160,7 +170,7 @@ def generate_slip_gaji(df):
         pdf.line(content_x, pdf.get_y(), page_width - content_x, pdf.get_y())
         pdf.ln(5)
 
-        # ======= SLIP GAJI CONTENT =======
+        # Slip gaji content
         pdf.set_font("Arial", "B", FONT_TITLE)
         pdf.cell(0, 10, "SLIP GAJI KARYAWAN", ln=True, align="C")
         pdf.ln(4)
@@ -168,18 +178,20 @@ def generate_slip_gaji(df):
         pdf.set_font("Arial", "", FONT_TEXT)
         pdf.cell(0, 6, f"Periode: {row.get('Periode', 'N/A')}", ln=True)
         pdf.cell(0, 6, f"Total Hari Masuk: {row.get('Total Hari Masuk', 'N/A')}", ln=True)
+        pdf.cell(0, 6, f"Terlambat: {row.get('Terlambat', 'N/A')}x | Alpha: {row.get('Alpha', 'N/A')}x", ln=True)
         pdf.ln(2)
 
         pdf.set_font("Arial", "B", FONT_LABEL)
         pdf.cell(0, 6, f"Nama: {row.get('Nama', '')}", ln=True)
         pdf.cell(0, 6, f"NIK: {row.get('NIK', '')}", ln=True)
+        pdf.cell(0, 6, f"Email: {row.get('Email', '')}", ln=True)
         pdf.ln(3)
 
         pdf.set_draw_color(0, 0, 0)
         pdf.line(content_x, pdf.get_y(), page_width - content_x, pdf.get_y())
         pdf.ln(6)
 
-        # ======= PENDAPATAN =======
+        # Pendapatan section
         pdf.set_font("Arial", "B", FONT_LABEL)
         pdf.set_fill_color(235, 235, 235)
         pdf.cell(90, 8, "Pendapatan", border=1, align="C", fill=True)
@@ -197,7 +209,7 @@ def generate_slip_gaji(df):
         pdf.cell(0, 7, f"Rp {row.get('TOTAL PENDAPATAN (A)', 0):,}", border=1, align="R")
         pdf.ln(12)
 
-        # ======= POTONGAN =======
+        # Potongan section
         pdf.set_font("Arial", "B", FONT_LABEL)
         pdf.set_fill_color(235, 235, 235)
         pdf.cell(90, 8, "Potongan", border=1, align="C", fill=True)
@@ -205,7 +217,7 @@ def generate_slip_gaji(df):
         pdf.ln()
         
         pdf.set_font("Arial", "", FONT_TEXT)
-        for label in ["Potongan Tidak Masuk", "PPH 21", "Potongan Lainnya"]:
+        for label in ["Tidak Masuk", "PPH 21", "Potongan Lainnya"]:
             pdf.cell(90, 6, label, border=1)
             pdf.cell(0, 6, f"Rp {row.get(label, 0):,}", border=1, align="R")
             pdf.ln()
@@ -215,14 +227,14 @@ def generate_slip_gaji(df):
         pdf.cell(0, 7, f"Rp {row.get('Total Potongan (B)', 0):,}", border=1, align="R")
         pdf.ln(12)
 
-        # ======= TAKE HOME PAY =======
+        # Take Home Pay
         pdf.set_font("Arial", "B", FONT_LABEL)
         pdf.set_fill_color(235, 235, 235)
         pdf.cell(90, 8, "Take Home Pay", border=1, align="C", fill=True)
         pdf.cell(0, 8, f"Rp {row.get('Take Home Pay', 0):,}", border=1, align="R", fill=True)
         pdf.ln(20)
 
-        # ======= FOOTER =======
+        # Footer
         tanggal_str = format_tanggal_indonesia()
         pdf.set_font("Arial", "", FONT_TEXT)
         pdf.cell(0, 6, tanggal_str, ln=True)
@@ -243,7 +255,7 @@ def generate_slip_gaji(df):
         pdf.cell(col_width, 6, "", align="R")
         pdf.ln(20)
 
-        # ======= DISCLAIMER =======
+        # Disclaimer
         pdf.set_font("Arial", "I", FONT_FOOTER)
         pdf.multi_cell(0, 5,
             "Dokumen slip gaji ini diterbitkan secara resmi oleh PT. Inixindo Widya Utama "
@@ -251,20 +263,140 @@ def generate_slip_gaji(df):
         )
        
         safe_name = row['Nama'].replace(' ', '_')
-        unique_id = uuid.uuid4().hex[:6]
-        filename = os.path.join(output_dir, f"{safe_name}_{unique_id}_Slip_Gaji.pdf")
+        #unique_id = uuid.uuid4().hex[:6]
+        #filename = os.path.join(output_dir, f"{safe_name}_{unique_id}_Slip_Gaji.pdf")
+        filename = os.path.join(output_dir, f"{safe_name}_Slip_Gaji.pdf")
         pdf.output(filename)
 
+
+
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+import ssl
+
+def blast_email():
+    global df_global, output_dir
+    
+    if df_global is None:
+        messagebox.showwarning("Peringatan", "Silakan pilih file Excel terlebih dahulu.")
+        return
+    
+    if not output_dir:
+        messagebox.showwarning("Peringatan", "Silakan generate slip gaji terlebih dahulu.")
+        return
+
+    # Konfigurasi email
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+    sender_email = "saptowahyusudrajat@gmail.com"  # Ganti dengan email pengirim
+    sender_password = "prtx mfwu kpxg iamz"      # Ganti dengan password/App Password
+    
+    # Buat dialog untuk konfirmasi
+    confirm = messagebox.askyesno("Konfirmasi", 
+                                "Anda akan mengirim email ke semua karyawan.\n"
+                                f"Email pengirim: {sender_email}\n"
+                                "Lanjutkan?")
+    if not confirm:
+        return
+    
+    progress_window = tk.Toplevel()
+    progress_window.title("Progress Pengiriman Email")
+    progress_window.geometry("400x200")
+    
+    progress_label = tk.Label(progress_window, text="Mengirim email...", font=("Segoe UI", 12))
+    progress_label.pack(pady=20)
+    
+    progress_var = tk.DoubleVar()
+    progress_bar = ttk.Progressbar(progress_window, variable=progress_var, maximum=len(df_global))
+    progress_bar.pack(fill="x", padx=20, pady=10)
+    
+    status_label = tk.Label(progress_window, text="", font=("Segoe UI", 10))
+    status_label.pack(pady=10)
+    
+    def send_emails():
+        context = ssl.create_default_context()
+        try:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls(context=context)
+                server.login(sender_email, sender_password)
+                
+                total_sent = 0
+                for i, (_, row) in enumerate(df_global.iterrows()):
+                    recipient_email = row['Email']
+                    if not pd.isna(recipient_email) and "@" in str(recipient_email):
+                        try:
+                            # Buat email
+                            msg = MIMEMultipart()
+                            msg['From'] = sender_email
+                            msg['To'] = recipient_email
+                            msg['Subject'] = f"Slip Gaji {row['Periode']} - {row['Nama']}"
+                            
+                            # Isi email
+                            body = f"""
+                            <html>
+                                <body>
+                                    <p>Yth. {row['Nama']},</p>
+                                    <p>Berikut kami sampaikan slip gaji Anda untuk periode {row['Periode']}.</p>
+                                    <p>Take Home Pay: <b>Rp {row['Take Home Pay']:,}</b></p>
+                                    <p>Slip gaji juga dapat diunduh pada lampiran email ini.</p>
+                                    <br>
+                                    <p>Hormat kami,</p>
+                                    <p>HRD PT. Inixindo Widya Utama</p>
+                                </body>
+                            </html>
+                            """
+                            msg.attach(MIMEText(body, 'html'))
+                            
+                            # Lampirkan PDF
+                            safe_name = row['Nama'].replace(' ', '_')
+                            pdf_filename = f"{safe_name}_Slip_Gaji.pdf"
+                            pdf_path = os.path.join(output_dir, pdf_filename)
+                            
+                            if os.path.exists(pdf_path):
+                                with open(pdf_path, "rb") as f:
+                                    attach = MIMEApplication(f.read(), _subtype="pdf")
+                                    attach.add_header('Content-Disposition', 'attachment', filename=pdf_filename)
+                                    msg.attach(attach)
+                            
+                            # Kirim email
+                            server.sendmail(sender_email, recipient_email, msg.as_string())
+                            total_sent += 1
+                            
+                            # Update progress
+                            progress_var.set(i+1)
+                            status_label.config(text=f"Mengirim ke {row['Nama']} ({recipient_email})")
+                            progress_window.update()
+                            
+                        except Exception as e:
+                            print(f"Gagal mengirim ke {recipient_email}: {str(e)}")
+                
+                messagebox.showinfo("Sukses", f"Email berhasil dikirim ke {total_sent} karyawan")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal mengirim email: {str(e)}")
+        finally:
+            progress_window.destroy()
+    
+    # Jalankan di thread terpisah agar GUI tidak freeze
+    import threading
+    threading.Thread(target=send_emails, daemon=True).start()
+
+
+
+
+
 def open_folder():
-    global output_dir
     if os.path.exists(output_dir):
-        if os.name == 'nt':  # Windows
+        if os.name == 'nt':
             os.startfile(output_dir)
-        else:  # Mac or Linux
+        else:
             subprocess.call(["open", output_dir])
     else:
-        messagebox.showwarning("Peringatan", "Folder 'slip_gaji' tidak ditemukan!")
+        messagebox.showwarning("Peringatan", "Folder tidak ditemukan!")
 
+# GUI Setup
 root = tk.Tk()
 root.title("Slip Gaji - Generate PDF")
 root.geometry("1000x650")
@@ -299,8 +431,15 @@ tk.Button(btn_frame, text="🖨️ Generate Slip Gaji", command=generate_pdf_cli
           font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=10)
 tk.Button(btn_frame, text="📂 Buka Folder Slip Gaji", command=open_folder, width=20, bg="#ff5722", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=3, padx=10)
-tk.Button(btn_frame, text="📧 Blasting Email", command=open_folder, width=20, bg="#ff5722", fg="white",
+# Tambahkan tombol blasting email di GUI
+tk.Button(btn_frame, text="📧 Blasting Email", command=blast_email, width=20, bg="#9c27b0", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=4, padx=10)
+
+
+
+
+
+
 
 label_file = tk.Label(root, text="❌ Tidak ada file yang dipilih", font=("Segoe UI", 10), fg="gray", bg="#f0f2f5")
 label_file.pack(pady=5)
@@ -312,15 +451,16 @@ scroll_frame.pack(fill="both", expand=True)
 tree_frame = tk.Frame(scroll_frame)
 tree_frame.pack(fill="both", expand=True)
 
-# Scrollbar vertical
+# Scrollbars
 scrollbar_y = tk.Scrollbar(tree_frame, orient="vertical")
 scrollbar_y.pack(side="right", fill="y")
 
-# Scrollbar horizontal
 scrollbar_x = tk.Scrollbar(tree_frame, orient="horizontal")
 scrollbar_x.pack(side="bottom", fill="x")
 
-tree = ttk.Treeview(tree_frame, show="headings", height=8, yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+tree = ttk.Treeview(tree_frame, show="headings", height=8, 
+                   yscrollcommand=scrollbar_y.set, 
+                   xscrollcommand=scrollbar_x.set)
 tree.pack(fill="both", expand=True)
 
 scrollbar_y.config(command=tree.yview)
