@@ -8,13 +8,15 @@ from datetime import datetime
 import tkinter.font as tkFont
 import uuid
 import sys
+from PyPDF2 import PdfWriter, PdfReader
+import io
 
 
-
-
-
-
-
+# Predefined login credentials
+LOGIN_CREDENTIALS = {
+    "username": "admin",
+    "password": "inixindo123"
+}
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -24,6 +26,59 @@ def resource_path(relative_path):
 
 df_global = None
 output_dir = ""
+
+# Login Window
+def create_login_window():
+    login_window = tk.Toplevel()
+    login_window.title("Login - Slip Gaji Inixindo")
+    login_window.geometry("350x200")
+    login_window.resizable(False, False)
+    
+    # Center the window
+    window_width = 350
+    window_height = 200
+    screen_width = login_window.winfo_screenwidth()
+    screen_height = login_window.winfo_screenheight()
+    x = (screen_width - window_width) // 2
+    y = (screen_height - window_height) // 2
+    login_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    
+    # Make it modal
+    login_window.grab_set()
+    
+    # Login Frame
+    login_frame = tk.Frame(login_window, padx=20, pady=20)
+    login_frame.pack(expand=True, fill="both")
+    
+    tk.Label(login_frame, text="Username:", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", pady=(0, 5))
+    username_entry = tk.Entry(login_frame, font=("Segoe UI", 10))
+    username_entry.grid(row=0, column=1, sticky="ew", pady=(0, 5))
+    
+    tk.Label(login_frame, text="Password:", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=(0, 5))
+    password_entry = tk.Entry(login_frame, show="*", font=("Segoe UI", 10))
+    password_entry.grid(row=1, column=1, sticky="ew", pady=(0, 5))
+    
+    def attempt_login():
+        username = username_entry.get()
+        password = password_entry.get()
+        
+        if username == LOGIN_CREDENTIALS["username"] and password == LOGIN_CREDENTIALS["password"]:
+            login_window.destroy()
+            root.deiconify()  # Show the main window
+        else:
+            messagebox.showerror("Login Gagal", "Username atau password salah!")
+    
+    login_button = tk.Button(login_frame, text="Login", command=attempt_login, 
+                           bg="#4caf50", fg="white", font=("Segoe UI", 10, "bold"))
+    login_button.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+    
+    # Bind Enter key to login
+    login_window.bind('<Return>', lambda event: attempt_login())
+    
+    # Set focus to username field
+    username_entry.focus_set()
+    
+    return login_window
 
 def open_file():
     global df_global
@@ -262,13 +317,32 @@ def generate_slip_gaji(df):
             "melalui sistem informasi internal. Dokumen ini sah dan berlaku tanpa memerlukan tanda tangan basah maupun stempel."
         )
        
+        # safe_name = row['Nama'].replace(' ', '_')
+        # filename = os.path.join(output_dir, f"{safe_name}_Slip_Gaji.pdf")
+        # pdf.output(filename)
+        
+        periode = row['Periode']
         safe_name = row['Nama'].replace(' ', '_')
-        #unique_id = uuid.uuid4().hex[:6]
-        #filename = os.path.join(output_dir, f"{safe_name}_{unique_id}_Slip_Gaji.pdf")
-        filename = os.path.join(output_dir, f"{safe_name}_Slip_Gaji.pdf")
-        pdf.output(filename)
-
-
+        filename = os.path.join(output_dir, f"{safe_name}_Slip_Gaji_{periode}.pdf")
+        
+        # Simpan PDF ke buffer
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        
+        # Buat PDF yang dipassword
+        pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
+        pdf_writer = PdfWriter()
+        
+        # Tambahkan semua halaman ke writer
+        for page in pdf_reader.pages:
+            pdf_writer.add_page(page)
+        
+        # Enkripsi dengan NIK sebagai password
+        nik_password = str(row.get('NIK', '123456'))  # Default password jika NIK kosong
+        pdf_writer.encrypt(nik_password)
+        
+        # Simpan PDF yang sudah dienkripsi
+        with open(filename, "wb") as f:
+            pdf_writer.write(f)
 
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -290,10 +364,9 @@ def blast_email():
     # Konfigurasi email
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    sender_email = "saptowahyusudrajat@gmail.com"  # Ganti dengan email pengirim
-    sender_password = "prtx mfwu kpxg iamz"      # Ganti dengan password/App Password
+    sender_email = "saptowahyusudrajat@gmail.com"
+    sender_password = "prtx mfwu kpxg iamz"
     
-    # Buat dialog untuk konfirmasi
     confirm = messagebox.askyesno("Konfirmasi", 
                                 "Anda akan mengirim email ke semua karyawan.\n"
                                 f"Email pengirim: {sender_email}\n"
@@ -321,7 +394,7 @@ def blast_email():
             with smtplib.SMTP(smtp_server, smtp_port) as server:
                 server.starttls(context=context)
                 server.login(sender_email, sender_password)
-                
+            
                 total_sent = 0
                 for i, (_, row) in enumerate(df_global.iterrows()):
                     recipient_email = row['Email']
@@ -331,16 +404,19 @@ def blast_email():
                             msg = MIMEMultipart()
                             msg['From'] = sender_email
                             msg['To'] = recipient_email
-                            msg['Subject'] = f"Slip Gaji {row['Periode']} - {row['Nama']}"
-                            
+                        
+                            periode = row['Periode']
+                            msg['Subject'] = f"Slip Gaji {periode} - {row['Nama']}"
+                        
                             # Isi email
                             body = f"""
                             <html>
                                 <body>
                                     <p>Yth. {row['Nama']},</p>
-                                    <p>Berikut kami sampaikan slip gaji Anda untuk periode {row['Periode']}.</p>
+                                    <p>Berikut kami sampaikan slip gaji Anda untuk periode {periode}.</p>
                                     <p>Take Home Pay: <b>Rp {row['Take Home Pay']:,}</b></p>
-                                    <p>Slip gaji juga dapat diunduh pada lampiran email ini.</p>
+                                    <p>Password untuk membuka file PDF adalah NIK Anda: <b>{row['NIK']}</b></p>
+                                    <p>Slip gaji dapat diunduh pada lampiran email ini.</p>
                                     <br>
                                     <p>Hormat kami,</p>
                                     <p>HRD PT. Inixindo Widya Utama</p>
@@ -348,44 +424,47 @@ def blast_email():
                             </html>
                             """
                             msg.attach(MIMEText(body, 'html'))
-                            
-                            # Lampirkan PDF
+                        
+                            # Cari file PDF yang sudah digenerate
                             safe_name = row['Nama'].replace(' ', '_')
-                            pdf_filename = f"{safe_name}_Slip_Gaji.pdf"
+                            safe_periode = periode
+                            pdf_filename = f"{safe_name}_Slip_Gaji_{safe_periode}.pdf"
                             pdf_path = os.path.join(output_dir, pdf_filename)
-                            
+                        
                             if os.path.exists(pdf_path):
+                                # Baca file PDF yang sudah dienkripsi
                                 with open(pdf_path, "rb") as f:
-                                    attach = MIMEApplication(f.read(), _subtype="pdf")
-                                    attach.add_header('Content-Disposition', 'attachment', filename=pdf_filename)
-                                    msg.attach(attach)
+                                    file_data = f.read()
+                                
+                                # Lampirkan PDF
+                                part = MIMEApplication(file_data, Name=pdf_filename)
+                                part['Content-Disposition'] = f'attachment; filename="{pdf_filename}"'
+                                msg.attach(part)
                             
-                            # Kirim email
-                            server.sendmail(sender_email, recipient_email, msg.as_string())
-                            total_sent += 1
+                                # Kirim email
+                                server.sendmail(sender_email, recipient_email, msg.as_string())
+                                total_sent += 1
                             
-                            # Update progress
-                            progress_var.set(i+1)
-                            status_label.config(text=f"Mengirim ke {row['Nama']} ({recipient_email})")
-                            progress_window.update()
-                            
+                                # Update progress
+                                progress_var.set(i+1)
+                                status_label.config(text=f"Mengirim ke {row['Nama']} ({recipient_email})")
+                                progress_window.update()
+                            else:
+                                print(f"File PDF tidak ditemukan: {pdf_path}")
+                        
                         except Exception as e:
                             print(f"Gagal mengirim ke {recipient_email}: {str(e)}")
-                
+            
                 messagebox.showinfo("Sukses", f"Email berhasil dikirim ke {total_sent} karyawan")
-                
+            
         except Exception as e:
             messagebox.showerror("Error", f"Gagal mengirim email: {str(e)}")
         finally:
             progress_window.destroy()
     
-    # Jalankan di thread terpisah agar GUI tidak freeze
+    # Jalankan di thread terpisah
     import threading
     threading.Thread(target=send_emails, daemon=True).start()
-
-
-
-
 
 def open_folder():
     if os.path.exists(output_dir):
@@ -396,11 +475,17 @@ def open_folder():
     else:
         messagebox.showwarning("Peringatan", "Folder tidak ditemukan!")
 
-# GUI Setup
+# Main GUI Setup
 root = tk.Tk()
 root.title("Slip Gaji - Generate PDF")
 root.geometry("1000x650")
 root.configure(bg="#f0f2f5")
+
+# Hide main window initially
+root.withdraw()
+
+# Create login window
+create_login_window()
 
 style = ttk.Style(root)
 style.theme_use("default")
@@ -431,15 +516,8 @@ tk.Button(btn_frame, text="🖨️ Generate Slip Gaji", command=generate_pdf_cli
           font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=10)
 tk.Button(btn_frame, text="📂 Buka Folder Slip Gaji", command=open_folder, width=20, bg="#ff5722", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=3, padx=10)
-# Tambahkan tombol blasting email di GUI
 tk.Button(btn_frame, text="📧 Blasting Email", command=blast_email, width=20, bg="#9c27b0", fg="white",
           font=("Segoe UI", 10, "bold")).grid(row=0, column=4, padx=10)
-
-
-
-
-
-
 
 label_file = tk.Label(root, text="❌ Tidak ada file yang dipilih", font=("Segoe UI", 10), fg="gray", bg="#f0f2f5")
 label_file.pack(pady=5)
