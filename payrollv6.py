@@ -27,6 +27,42 @@ def resource_path(relative_path):
 df_global = None
 output_dir = ""
 
+# Button references untuk enable/disable
+btn_pilih_excel = None
+btn_pilih_lokasi = None
+btn_generate_pdf = None
+btn_buka_folder = None
+btn_blast_email = None
+
+def update_button_states():
+    """Update status enable/disable button berdasarkan langkah yang sudah diselesaikan"""
+    # Button 1: Pilih File Excel - selalu enable
+    btn_pilih_excel.state(['!disabled'])
+    
+    # Button 2: Pilih Lokasi - enable setelah file excel dipilih
+    if df_global is not None:
+        btn_pilih_lokasi.state(['!disabled'])
+    else:
+        btn_pilih_lokasi.state(['disabled'])
+    
+    # Button 3: Generate PDF - enable setelah file excel dan lokasi dipilih
+    if df_global is not None and output_dir:
+        btn_generate_pdf.state(['!disabled'])
+    else:
+        btn_generate_pdf.state(['disabled'])
+    
+    # Button 4: Buka Folder - enable setelah PDF digenerate
+    if df_global is not None and output_dir and os.path.exists(output_dir) and any(f.endswith('.pdf') for f in os.listdir(output_dir)):
+        btn_buka_folder.state(['!disabled'])
+    else:
+        btn_buka_folder.state(['disabled'])
+    
+    # Button 5: Blast Email - enable setelah PDF digenerate
+    if df_global is not None and output_dir and os.path.exists(output_dir) and any(f.endswith('.pdf') for f in os.listdir(output_dir)):
+        btn_blast_email.state(['!disabled'])
+    else:
+        btn_blast_email.state(['disabled'])
+
 # Login Window
 def create_login_window():
     login_window = tk.Toplevel()
@@ -65,6 +101,7 @@ def create_login_window():
         if username == LOGIN_CREDENTIALS["username"] and password == LOGIN_CREDENTIALS["password"]:
             login_window.destroy()
             root.deiconify()  # Show the main window
+            update_button_states()  # Update button states setelah login
         else:
             messagebox.showerror("Login Gagal", "Username atau password salah!")
     
@@ -93,6 +130,7 @@ def open_file():
             df.fillna(0, inplace=True)
             df_global = df
             tampilkan_excel(df)
+            update_button_states()  # Update button states setelah file dipilih
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membaca file:\n{e}")
     else:
@@ -149,6 +187,7 @@ def select_pdf_loc():
     if folder_path:
         output_dir = folder_path
         messagebox.showinfo("Lokasi Tersimpan", f"File PDF akan disimpan di:\n{output_dir}")
+        update_button_states()  # Update button states setelah lokasi dipilih
 
 def generate_pdf_clicked():
     global output_dir
@@ -163,6 +202,7 @@ def generate_pdf_clicked():
 
     generate_slip_gaji(df_global)
     messagebox.showinfo("Sukses", f"Slip gaji berhasil dibuat di folder '{output_dir}'")
+    update_button_states()  # Update button states setelah PDF digenerate
 
 def format_tanggal_indonesia():
     bulan_indonesia = [
@@ -317,10 +357,6 @@ def generate_slip_gaji(df):
             "melalui sistem informasi internal. Dokumen ini sah dan berlaku tanpa memerlukan tanda tangan basah maupun stempel."
         )
        
-        # safe_name = row['Nama'].replace(' ', '_')
-        # filename = os.path.join(output_dir, f"{safe_name}_Slip_Gaji.pdf")
-        # pdf.output(filename)
-        
         periode = row['Periode']
         safe_name = row['Nama'].replace(' ', '_')
         filename = os.path.join(output_dir, f"{safe_name}_Slip_Gaji_{periode}.pdf")
@@ -364,8 +400,8 @@ def blast_email():
     # Konfigurasi email
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    sender_email = "saptowahyusudrajat@gmail.com"
-    sender_password = "prtx mfwu kpxg iamz"
+    sender_email = "masbrownid@gmail.com"
+    sender_password = "goia mmwe atit zydp"
     
     confirm = messagebox.askyesno("Konfirmasi", 
                                 "Anda akan mengirim email ke semua karyawan.\n"
@@ -489,6 +525,24 @@ create_login_window()
 
 style = ttk.Style(root)
 style.theme_use("default")
+
+# Tambahkan konfigurasi untuk button disabled
+style.configure('TButton', 
+               font=("Segoe UI", 10, "bold"),
+               padding=6)
+
+style.map('TButton',
+          foreground=[('disabled', 'gray')],
+          background=[('disabled', 'white')]
+          )
+
+# Style khusus untuk masing-masing tombol
+style.configure('Excel.TButton', background='#4caf50', foreground='white')
+style.configure('Lokasi.TButton', background='#ff8c00', foreground='white')
+style.configure('Generate.TButton', background='#2196f3', foreground='white')
+style.configure('Folder.TButton', background='#ff5722', foreground='white')
+style.configure('Email.TButton', background='#9c27b0', foreground='white')
+
 style.configure("Treeview",
                 background="#ffffff",
                 foreground="#333333",
@@ -508,16 +562,25 @@ tk.Label(header_frame, text="Upload file Excel dan generate slip gaji dalam form
 btn_frame = tk.Frame(root, bg="#f0f2f5")
 btn_frame.pack(pady=10)
 
-tk.Button(btn_frame, text="📁 Pilih File Excel", command=open_file, width=20, bg="#4caf50", fg="white",
-          font=("Segoe UI", 10, "bold")).grid(row=0, column=0, padx=10)
-tk.Button(btn_frame, text="📁 Pilih Lokasi Slip Gaji", command=select_pdf_loc, width=20, bg="#ff8c00", fg="white",
-          font=("Segoe UI", 10, "bold")).grid(row=0, column=1, padx=10)
-tk.Button(btn_frame, text="🖨️ Generate Slip Gaji", command=generate_pdf_clicked, width=20, bg="#2196f3", fg="white",
-          font=("Segoe UI", 10, "bold")).grid(row=0, column=2, padx=10)
-tk.Button(btn_frame, text="📂 Buka Folder Slip Gaji", command=open_folder, width=20, bg="#ff5722", fg="white",
-          font=("Segoe UI", 10, "bold")).grid(row=0, column=3, padx=10)
-tk.Button(btn_frame, text="📧 Blasting Email", command=blast_email, width=20, bg="#9c27b0", fg="white",
-          font=("Segoe UI", 10, "bold")).grid(row=0, column=4, padx=10)
+# Buat button dengan referensi global
+btn_pilih_excel = ttk.Button(btn_frame, text="📁 Pilih File Excel", command=open_file, style='Excel.TButton')
+btn_pilih_excel.grid(row=0, column=0, padx=10)
+
+btn_pilih_lokasi = ttk.Button(btn_frame, text="📁 Pilih Lokasi Slip Gaji", command=select_pdf_loc, style='Lokasi.TButton')
+btn_pilih_lokasi.grid(row=0, column=1, padx=10)
+btn_pilih_lokasi.state(['disabled'])
+
+btn_generate_pdf = ttk.Button(btn_frame, text="🖨️ Generate Slip Gaji", command=generate_pdf_clicked, style='Generate.TButton')
+btn_generate_pdf.grid(row=0, column=2, padx=10)
+btn_generate_pdf.state(['disabled'])
+
+btn_buka_folder = ttk.Button(btn_frame, text="📂 Buka Folder Slip Gaji", command=open_folder, style='Folder.TButton')
+btn_buka_folder.grid(row=0, column=3, padx=10)
+btn_buka_folder.state(['disabled'])
+
+btn_blast_email = ttk.Button(btn_frame, text="📧 Blasting Email", command=blast_email, style='Email.TButton')
+btn_blast_email.grid(row=0, column=4, padx=10)
+btn_blast_email.state(['disabled'])
 
 label_file = tk.Label(root, text="❌ Tidak ada file yang dipilih", font=("Segoe UI", 10), fg="gray", bg="#f0f2f5")
 label_file.pack(pady=5)
