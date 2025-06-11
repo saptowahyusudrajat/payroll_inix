@@ -329,26 +329,6 @@ def generate_slip_gaji(df):
         pdf.cell(0, 8, f"Rp {row.get('Take Home Pay', 0):,}", border=1, align="R", fill=True)
         pdf.ln(20)
 
-        # Footer
-        tanggal_str = format_tanggal_indonesia()
-        pdf.set_font("Arial", "", FONT_TEXT)
-        pdf.cell(0, 6, tanggal_str, ln=True)
-        pdf.ln(1)
-
-        col_width = 90
-        pdf.set_font("Arial", "", FONT_TEXT)
-        pdf.cell(col_width, 6, "Mengetahui,", align="L")
-        pdf.cell(col_width, 6, "Diterima oleh,", align="R")
-        pdf.ln(20)
-
-        pdf.cell(col_width, 6, "Bambang Soerjohandoko", align="L")
-        pdf.cell(col_width, 6, row.get('Nama', ''), align="R")
-        pdf.ln(6)
-
-        pdf.set_font("Arial", "", FONT_TEXT)
-        pdf.cell(col_width, 6, "(Direktur Utama)", align="L")
-        pdf.cell(col_width, 6, "", align="R")
-        pdf.ln(20)
 
         # Disclaimer
         pdf.set_font("Arial", "I", FONT_FOOTER)
@@ -450,12 +430,10 @@ def blast_email():
                                 <body>
                                     <p>Yth. {row['Nama']},</p>
                                     <p>Berikut kami sampaikan slip gaji Anda untuk periode {periode}.</p>
-                                    <p>Take Home Pay: <b>Rp {row['Take Home Pay']:,}</b></p>
-                                    <p>Password untuk membuka file PDF adalah NIK Anda: <b>{row['NIK']}</b></p>
                                     <p>Slip gaji dapat diunduh pada lampiran email ini.</p>
                                     <br>
                                     <p>Hormat kami,</p>
-                                    <p>HRD PT. Inixindo Widya Utama</p>
+                                    <p>Dirut PT. Inixindo Widya Utama</p>
                                 </body>
                             </html>
                             """
