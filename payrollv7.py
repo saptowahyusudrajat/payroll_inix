@@ -136,7 +136,7 @@ def open_file():
     if file_path:
         label_file.config(text=f"📂 File dipilih:\n{file_path}")
         try:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, dtype={"NIK": str})
             df.fillna(0, inplace=True)
             df_global = df
             tampilkan_excel(df)
@@ -154,6 +154,10 @@ def select_period():
     update_button_states()
 
 def tampilkan_excel(df):
+    # Pastikan NIK bertipe string
+    if "NIK" in df.columns:
+        df["NIK"] = df["NIK"].astype(str)
+
     tree.delete(*tree.get_children())
     tree["columns"] = list(df.columns)
     tree["show"] = "headings"
@@ -217,6 +221,42 @@ def generate_pdf_clicked():
         messagebox.showwarning("Peringatan", "Silakan pilih lokasi penyimpanan terlebih dahulu.")
         return
 
+    # List of numeric columns to validate
+    numeric_columns = [
+        'THP (Take Home Pay)', 
+        'PPh 21', 
+        'TER (%)', 
+        'Tunjangan Jabatan', 
+        'Gaji Bruto', 
+        'Gaji Pokok', 
+        'Tunjangan Hadir', 
+        'Komisi/ Bonus', 
+        'THR/Tunjangan lain'
+    ]
+    
+    # Check each row for non-numeric values in numeric columns
+    error_rows = []
+    for index, row in df_global.iterrows():
+        for col in numeric_columns:
+            if col in row:
+                value = row[col]
+                # Skip if value is NaN (already handled by fillna(0))
+                if pd.isna(value):
+                    continue
+                # Check if value contains any letters (a-z or A-Z)
+                if isinstance(value, str) and any(c.isalpha() for c in value):
+                    error_rows.append((index + 2, col, value))  # +2 because Excel rows start at 1 and header is row 1
+    
+    if error_rows:
+        error_message = "Ditemukan nilai non-numerik pada kolom yang seharusnya berisi angka:\n\n"
+        for row_num, col_name, invalid_value in error_rows:
+            error_message += f"Baris {row_num}, Kolom '{col_name}': '{invalid_value}'\n"
+        
+        error_message += "\nSilakan perbaiki file Excel terlebih dahulu."
+        messagebox.showerror("Error Validasi", error_message)
+        return
+
+    # If validation passes, generate PDFs
     generate_slip_gaji(df_global)
     messagebox.showinfo("Sukses", f"Slip gaji berhasil dibuat di folder '{output_dir}'")
     update_button_states()  # Update button states setelah PDF digenerate
@@ -405,7 +445,7 @@ def blast_email():
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
     sender_email = "masbrownid@gmail.com"
-    sender_password = "goia mmwe atit zydp"
+    sender_password = "jkmg gpko xhaz ovub"
     
     confirm = messagebox.askyesno("Konfirmasi", 
                                 "Anda akan mengirim email ke semua karyawan.\n"
@@ -495,6 +535,7 @@ def blast_email():
                             print(f"Gagal mengirim ke {recipient_email}: {str(e)}")
             
                 messagebox.showinfo("Sukses", f"Email berhasil dikirim ke {total_sent} karyawan")
+                root.quit()
             
         except Exception as e:
             messagebox.showerror("Error", f"Gagal mengirim email: {str(e)}")
