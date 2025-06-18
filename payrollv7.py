@@ -10,7 +10,8 @@ import uuid
 import sys
 from PyPDF2 import PdfWriter, PdfReader
 import io
-
+from tkinter import *
+from PIL import Image, ImageTk
 
 # Predefined login credentials
 LOGIN_CREDENTIALS = {
@@ -558,8 +559,32 @@ def open_folder():
 # Main GUI Setup
 root = tk.Tk()
 root.title("Slip Gaji - Generate PDF")
-root.geometry("1200x650")
+#root.geometry("1200x650")
+# Get screen dimensions
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+
+# Set window to screen size
+root.geometry(f"{screen_width}x{screen_height}+0+0")
+
+root.resizable(False, False)
 root.configure(bg="#f0f2f5")
+
+# Open and resize image
+original_image = Image.open("logo_inix.png")
+resized_image = original_image.resize((120, 51))  # (width, height) original 300x127
+
+# Convert to Tkinter format
+tk_image = ImageTk.PhotoImage(resized_image)
+
+# Display using place() with absolute positioning
+label = Label(root, image=tk_image)
+label.place(
+    x=620,           # 20 pixels from left
+    y=4,           # 10 pixels from top
+    anchor="nw"      # Anchor at northwest corner (top-left)
+)
+label.image = tk_image
 
 # Hide main window initially
 root.withdraw()
@@ -599,9 +624,8 @@ style.configure("Treeview.Heading", font=("Segoe UI", 11, "bold"), background="#
 header_frame = tk.Frame(root, bg="#f0f2f5")
 header_frame.pack(pady=10)
 
-tk.Label(header_frame, text="📄 App Slip Gaji Inixindo Surabaya", font=("Segoe UI", 18, "bold"), bg="#f0f2f5").pack()
-tk.Label(header_frame, text="Upload file Excel dan generate slip gaji dalam format PDF.",
-         font=("Segoe UI", 10), bg="#f0f2f5", fg="#555").pack()
+tk.Label(header_frame, text="App Slip Gaji Inixindo Surabaya", font=("Segoe UI", 18, "bold"), bg="#f0f2f5").pack()
+#tk.Label(header_frame, text="Upload file Excel dan generate slip gaji dalam format PDF.",font=("Segoe UI", 10), bg="#f0f2f5", fg="#555").pack()
 
 btn_frame = tk.Frame(root, bg="#f0f2f5")
 btn_frame.pack(pady=10)
