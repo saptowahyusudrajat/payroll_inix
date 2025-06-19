@@ -570,22 +570,6 @@ root.geometry("1366x768")
 root.resizable(False, False)
 root.configure(bg="#f0f2f5")
 
-# Open and resize image
-original_image = Image.open("logo_inix.png")
-resized_image = original_image.resize((120, 51))  # (width, height) original 300x127
-
-# Convert to Tkinter format
-tk_image = ImageTk.PhotoImage(resized_image)
-
-# Display using place() with absolute positioning
-label = Label(root, image=tk_image)
-label.place(
-    x=350,           # 20 pixels from left
-    y=4,           # 10 pixels from top
-    anchor="nw"      # Anchor at northwest corner (top-left)
-)
-label.image = tk_image
-
 # Hide main window initially
 root.withdraw()
 
@@ -621,16 +605,41 @@ style.configure("Treeview",
 style.map("Treeview", background=[("selected", "#007acc")], foreground=[("selected", "#ffffff")])
 style.configure("Treeview.Heading", font=("Segoe UI", 11, "bold"), background="#e0e0e0", foreground="#333")
 
+# Header frame dengan logo dan judul
 header_frame = tk.Frame(root, bg="#f0f2f5")
 header_frame.pack(pady=10)
 
-tk.Label(header_frame, text="App Slip Gaji Inixindo Surabaya", font=("Segoe UI", 18, "bold"), bg="#f0f2f5").pack()
-#tk.Label(header_frame, text="Upload file Excel dan generate slip gaji dalam format PDF.",font=("Segoe UI", 10), bg="#f0f2f5", fg="#555").pack()
+# Logo frame untuk centering
+logo_frame = tk.Frame(header_frame, bg="#f0f2f5")
+logo_frame.pack()
 
+# Open and resize image
+original_image = Image.open("logo_inix.png")
+resized_image = original_image.resize((180, 76))  # (width, height) original 300x127
+
+# Convert to Tkinter format
+tk_image = ImageTk.PhotoImage(resized_image)
+
+# Display logo centered
+logo_label = Label(logo_frame, image=tk_image, bg="#f0f2f5")
+logo_label.pack()
+logo_label.image = tk_image
+
+# Title di bawah logo, centered
+title_label = tk.Label(header_frame, text="App Slip Gaji Inixindo Surabaya", 
+                      font=("Segoe UI", 18, "bold"), bg="#f0f2f5")
+title_label.pack(pady=(10, 0))
+
+# Subtitle (optional - uncomment if needed)
+#subtitle_label = tk.Label(header_frame, text="Upload file Excel dan generate slip gaji dalam format PDF.",
+#                         font=("Segoe UI", 10), bg="#f0f2f5", fg="#555")
+#subtitle_label.pack()
+
+# Button frame
 btn_frame = tk.Frame(root, bg="#f0f2f5")
 btn_frame.pack(pady=10)
 
-# Buat button dengan referensi global
+# Buat button dengan referensi global - centered dengan grid
 btn_pilih_excel = ttk.Button(btn_frame, text="📁 Pilih File Excel", command=open_file, style='Excel.TButton')
 btn_pilih_excel.grid(row=0, column=0, padx=10)
 
@@ -650,19 +659,31 @@ btn_blast_email = ttk.Button(btn_frame, text="📧 Blasting Email", command=blas
 btn_blast_email.grid(row=0, column=4, padx=10)
 btn_blast_email.state(['disabled'])
 
+# Center the button frame
+btn_frame.grid_columnconfigure(0, weight=1)
+btn_frame.grid_columnconfigure(1, weight=1)
+btn_frame.grid_columnconfigure(2, weight=1)
+btn_frame.grid_columnconfigure(3, weight=1)
+btn_frame.grid_columnconfigure(4, weight=1)
+
+# File status label
 label_file = tk.Label(root, text="❌ Tidak ada file yang dipilih", font=("Segoe UI", 10), fg="gray", bg="#f0f2f5")
 label_file.pack(pady=5)
 
-
-# Tambahkan dropdown bulan dan tahun sebelum tombol pilih file
+# Period selection frame
 period_frame = tk.Frame(root, bg="#f0f2f5")
 period_frame.pack(pady=5)
 
-period_label = tk.Label(period_frame, text="📅 Periode Gaji: Belum dipilih", font=("Segoe UI", 10), bg="#f0f2f5")
+# Period info frame untuk centering
+period_info_frame = tk.Frame(period_frame, bg="#f0f2f5")
+period_info_frame.pack()
+
+period_label = tk.Label(period_info_frame, text="📅 Periode Gaji: Belum dipilih", 
+                       font=("Segoe UI", 10), bg="#f0f2f5")
 period_label.pack(side=tk.LEFT, padx=5)
 
 # Frame untuk combobox bulan dan tahun
-combobox_frame = tk.Frame(period_frame, bg="#f0f2f5")
+combobox_frame = tk.Frame(period_info_frame, bg="#f0f2f5")
 combobox_frame.pack(side=tk.LEFT)
 
 # Buat dropdown untuk pilih bulan
@@ -693,7 +714,7 @@ select_period()
 
 # Frame untuk Scroll
 scroll_frame = tk.Frame(root)
-scroll_frame.pack(fill="both", expand=True)
+scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
 tree_frame = tk.Frame(scroll_frame)
 tree_frame.pack(fill="both", expand=True)
