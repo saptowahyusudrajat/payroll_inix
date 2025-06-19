@@ -559,13 +559,13 @@ def open_folder():
 # Main GUI Setup
 root = tk.Tk()
 root.title("Slip Gaji - Generate PDF")
-#root.geometry("1200x650")
+root.geometry("1366x768")
 # Get screen dimensions
-screen_width = root.winfo_screenwidth()
-screen_height = root.winfo_screenheight()
+#screen_width = root.winfo_screenwidth()
+#screen_height = root.winfo_screenheight()
 
 # Set window to screen size
-root.geometry(f"{screen_width}x{screen_height}+0+0")
+#root.geometry(f"{screen_width}x{screen_height}+0+0")
 
 root.resizable(False, False)
 root.configure(bg="#f0f2f5")
@@ -580,7 +580,7 @@ tk_image = ImageTk.PhotoImage(resized_image)
 # Display using place() with absolute positioning
 label = Label(root, image=tk_image)
 label.place(
-    x=620,           # 20 pixels from left
+    x=350,           # 20 pixels from left
     y=4,           # 10 pixels from top
     anchor="nw"      # Anchor at northwest corner (top-left)
 )
